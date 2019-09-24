@@ -154,14 +154,26 @@ public class KafkaNotification extends AbstractNotification implements Service {
 
     @VisibleForTesting
     public <T> List<NotificationConsumer<T>> createConsumers(NotificationType notificationType, int numConsumers, boolean autoCommitEnabled) {
-        LOG.info("==> KafkaNotification.createConsumers(notificationType={}, numConsumers={}, autoCommitEnabled={})", notificationType, numConsumers, autoCommitEnabled);
+        LOG.info("==> KafkaNotification.createConsumers(notificationType={}, numConsumers={}, autoCommitEnabled={})", notificationType, numConsumers,
+                autoCommitEnabled);
+        int count = 0;
+        Properties consumerProperties = getConsumerProperties(notificationType);
+        List<NotificationConsumer<T>> consumers = new ArrayList<>();
+        while (numConsumers > 0) {
+//            AtlasKafkaConsumer kafkaConsumer = new AtlasKafkaConsumer(notificationType,
+//                    getKafkaConsumer(consumerProperties, notificationType, autoCommitEnabled), autoCommitEnabled, pollTimeOutMs);
+            AtlasKafkaConsumer kafkaConsumer = new AtlasKafkaConsumer(notificationType,
+                    getDifKafkaConsumer(consumerProperties, notificationType, autoCommitEnabled), autoCommitEnabled, pollTimeOutMs);
+            consumers.add(kafkaConsumer);
+            numConsumers--;
+            LOG.info("==> KafkaNotification.createConsumers(notificationType={}, Consumers={}, autoCommitEnabled={}) completed", notificationType, count++,
+                    autoCommitEnabled);
+        }
 
-        Properties         consumerProperties = getConsumerProperties(notificationType);
-        AtlasKafkaConsumer kafkaConsumer      = new AtlasKafkaConsumer(notificationType, getKafkaConsumer(consumerProperties, notificationType, autoCommitEnabled), autoCommitEnabled, pollTimeOutMs);
+//        List<NotificationConsumer<T>> consumers = Collections.singletonList(kafkaConsumer);
 
-        List<NotificationConsumer<T>> consumers = Collections.singletonList(kafkaConsumer);
-
-        LOG.info("<== KafkaNotification.createConsumers(notificationType={}, numConsumers={}, autoCommitEnabled={})", notificationType, numConsumers, autoCommitEnabled);
+        LOG.info("<== KafkaNotification.createConsumers(notificationType={}, numConsumers={}, autoCommitEnabled={})", notificationType, numConsumers,
+                autoCommitEnabled);
 
         return consumers;
     }
@@ -246,6 +258,25 @@ public class KafkaNotification extends AbstractNotification implements Service {
         }
 
         return this.consumer;
+    }
+
+    public KafkaConsumer getDifKafkaConsumer(Properties consumerProperties, NotificationType type, boolean autoCommitEnabled) {
+//        if (consumer == null || !isKafkaConsumerOpen(consumer)) {
+            try {
+                String topic = TOPIC_MAP.get(type);
+
+                consumerProperties.put("enable.auto.commit", autoCommitEnabled);
+
+                KafkaConsumer kafkaConsumer = new KafkaConsumer(consumerProperties);
+
+                kafkaConsumer.subscribe(Arrays.asList(topic));
+                return kafkaConsumer;
+            } catch (Exception ee) {
+                LOG.error("Exception in getKafkaConsumer ", ee);
+                return null;
+            }
+//        }
+
     }
 
 
